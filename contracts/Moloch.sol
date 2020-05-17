@@ -321,10 +321,6 @@ contract Moloch is ReentrancyGuard {
 
         // append proposal to the queue
         proposalQueue.push(proposalId);
-        // if referral reward available transfer to sponsor.
-        if(IERC20(rewardToken).balanceOf(address(this)) > rewardReferral || address(this).balance > rewardReferral) {
-            rewardSponsor(msg.sender);
-        }
         emit SponsorProposal(msg.sender, memberAddress, proposalId, proposalQueue.length.sub(1), startingPeriod);
     }
 
@@ -432,6 +428,11 @@ contract Moloch is ReentrancyGuard {
             // if the proposal spends 100% of guild bank balance for a token, decrement total guild bank tokens
             if (userTokenBalances[GUILD][proposal.paymentToken] == 0 && proposal.paymentRequested > 0) {
                 totalGuildBankTokens -= 1;
+            }
+
+            // if referral reward available transfer to sponsor.
+            if(IERC20(rewardToken).balanceOf(address(this)) > rewardReferral || address(this).balance > rewardReferral) {
+                rewardSponsor(msg.sender);
             }
 
         // PROPOSAL FAILED
