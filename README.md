@@ -1,12 +1,12 @@
 STEAL THIS CODE
 
-# Moloch v2 (Referral Version)
-
-![Worship Moloch](https://cdn.discordapp.com/attachments/583914506389028865/641047975421804584/2019-11-04_14.55.39.jpg)
-
 WARNING: This contract is experimenting with a referral reward for proposal sponsors. IT DIFFERS from the original contracts.
 
 ADDITIONAL WARNING: I wrote the reward logic in about 45 minutes and haven't tested the code in production yet.
+
+# Moloch v2 (Referral Version)
+
+![Worship Moloch](https://cdn.discordapp.com/attachments/583914506389028865/641047975421804584/2019-11-04_14.55.39.jpg)
 
 > Moloch whose love is endless oil and stone! Moloch whose soul is electricity and banks! Moloch whose poverty is the specter of genius! Moloch whose fate is a cloud of sexless hydrogen! Moloch whose name is the Mind!
 
