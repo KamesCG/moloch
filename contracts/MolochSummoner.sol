@@ -18,7 +18,9 @@ contract MolochSummoner {
         uint256 _gracePeriodLength,
         uint256 _proposalDeposit,
         uint256 _dilutionBound,
-        uint256 _processingReward) public {
+        uint256 _processingReward,
+        address _rewardToken,
+        uint256 _rewardReferral) public {
 
         M = new Moloch(
             _summoner,
@@ -28,7 +30,9 @@ contract MolochSummoner {
             _gracePeriodLength,
             _proposalDeposit,
             _dilutionBound,
-            _processingReward);
+            _processingReward,
+            _rewardToken,
+            _rewardReferral);
 
         Molochs.push(address(M));
 

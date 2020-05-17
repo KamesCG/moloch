@@ -20,6 +20,12 @@ contract Moloch is ReentrancyGuard {
 
     address public depositToken; // deposit token contract reference; default = wETH
 
+    /*****************
+    REFERRAL CONSTANTS
+    *****************/
+    address public rewardToken;
+    uint256 public rewardReferral;
+
     // HARD-CODED LIMITS
     // These numbers are quite arbitrary; they are small enough to avoid overflows when doing calculations
     // with periods or shares, yet big enough to not limit reasonable use cases.
@@ -130,7 +136,9 @@ contract Moloch is ReentrancyGuard {
         uint256 _gracePeriodLength,
         uint256 _proposalDeposit,
         uint256 _dilutionBound,
-        uint256 _processingReward
+        uint256 _processingReward,
+        address _rewardToken, // default ETH
+        uint256 _rewardReferral
     ) public {
         require(_summoner != address(0), "summoner cannot be 0");
         require(_periodDuration > 0, "_periodDuration cannot be 0");
@@ -144,9 +152,13 @@ contract Moloch is ReentrancyGuard {
         require(_proposalDeposit >= _processingReward, "_proposalDeposit cannot be smaller than _processingReward");
         
         depositToken = _approvedTokens[0];
+        
+        // set reward token and reward
+        rewardToken = _rewardToken;
+        rewardReferral = _rewardReferral;
+
         // NOTE: move event up here, avoid stack too deep if too many approved tokens
         emit SummonComplete(_summoner, _approvedTokens, now, _periodDuration, _votingPeriodLength, _gracePeriodLength, _proposalDeposit, _dilutionBound, _processingReward);
-
 
         for (uint256 i = 0; i < _approvedTokens.length; i++) {
             require(_approvedTokens[i] != address(0), "_approvedToken cannot be 0");
@@ -309,7 +321,10 @@ contract Moloch is ReentrancyGuard {
 
         // append proposal to the queue
         proposalQueue.push(proposalId);
-        
+        // if referral reward available transfer to sponsor.
+        if(IERC20(rewardToken).balanceOf(address(this)) > rewardReferral || address(this).balance > rewardReferral) {
+            rewardSponsor(msg.sender);
+        }
         emit SponsorProposal(msg.sender, memberAddress, proposalId, proposalQueue.length.sub(1), startingPeriod);
     }
 
@@ -643,6 +658,14 @@ contract Moloch is ReentrancyGuard {
 
     function hasVotingPeriodExpired(uint256 startingPeriod) public view returns (bool) {
         return getCurrentPeriod() >= startingPeriod.add(votingPeriodLength);
+    }
+
+    function rewardSponsor(address payable _referrer) internal {
+        if(rewardToken != address(0)) {
+            IERC20(rewardToken).transfer(_referrer, rewardReferral);
+        } else {
+            _referrer.transfer(rewardReferral);
+        }
     }
 
     /***************
