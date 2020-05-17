@@ -1,8 +1,12 @@
-
 STEAL THIS CODE
 
-# Moloch v2
+# Moloch v2 (Referral Version)
+
 ![Worship Moloch](https://cdn.discordapp.com/attachments/583914506389028865/641047975421804584/2019-11-04_14.55.39.jpg)
+
+WARNING: This contract is experimenting with a referral reward for proposal sponsors. IT DIFFERS from the original contracts.
+
+ADDITIONAL WARNING: I wrote the reward logic in about 45 minutes and haven't tested the code in production yet.
 
 > Moloch whose love is endless oil and stone! Moloch whose soul is electricity and banks! Moloch whose poverty is the specter of genius! Moloch whose fate is a cloud of sexless hydrogen! Moloch whose name is the Mind!
 
@@ -15,13 +19,14 @@ Moloch v2 is an upgraded version of MolochDAO that allows the DAO to acquire and
 For a primer on Moloch v1, please visit the [original documentation](https://github.com/MolochVentures/moloch/tree/minimal-revenue/v1_contracts).
 
 ## Design Principles
+
 In developing Moloch v2, we stuck with our ruthless minimalism, deviating as little as possible from the original while dramatically improving utility. We skipped many features again and believe our design represents a Minimally Viable For-Profit DAO, yet one flexible enough to support a variety of use decentralized cases, including venture funds, hedge funds, investment banks, and incubators.
 
 ## Overview
 
 Moloch v2 is designed to extend MolochDAO's operations from purely single-token public goods grants-making to acquiring and spending (or investing in) an unlimited portfolio of assets.
 
-Proposals in Moloch v2 now specify a **tribute token** and a **payment token**, which can be any whitelisted ERC20. Membership proposals which offer tribute tokens in exchange for shares can now offer any token, possibly helping balance the DAO portfolio. Grant proposals can now be in both shares and a stablecoin payment token to smooth out volatility risk, or even skip shares entirely to pay external contractors without awarding membership. Members can also propose *trades* to swap tokens OTC with the guild bank, which could be used for making investments, active portfolio management, selloffs, or just to top off a stablecoin reserve used to pay for planned expenses.
+Proposals in Moloch v2 now specify a **tribute token** and a **payment token**, which can be any whitelisted ERC20. Membership proposals which offer tribute tokens in exchange for shares can now offer any token, possibly helping balance the DAO portfolio. Grant proposals can now be in both shares and a stablecoin payment token to smooth out volatility risk, or even skip shares entirely to pay external contractors without awarding membership. Members can also propose _trades_ to swap tokens OTC with the guild bank, which could be used for making investments, active portfolio management, selloffs, or just to top off a stablecoin reserve used to pay for planned expenses.
 
 In addition to standard proposals above, there are two special proposals. The first is for whitelisting new tokens to be eligible as tribute, and the second is for removing DAO members via Guild Kick. Both follow the same voting mechanics as standard proposals (no quorum, simple majority rules).
 
@@ -108,7 +113,6 @@ AVAILABLE TASKS:
   test                          Runs mocha tests
 ```
 
-
 You can run `npx buidler help <task>` to get help about each tasks and their parameters. For example:
 
 ```
@@ -153,7 +157,7 @@ Moloch v2 is minimally different from Moloch v1, please read the [original docum
 ### General Changes
 
 In order to circumvent Solidity's 16 parameter "stack too deep" error we
-combined several proposal flags in the Proposal struct into the *flags* array.
+combined several proposal flags in the Proposal struct into the _flags_ array.
 
 ```
 struct Proposal {
@@ -178,12 +182,15 @@ In order to mitigate a number of potential vulnerabilities around token transfer
 Note - in this documentation we still refer to the "Guild Bank" as it remains a useful concept, but the balance is no longer tracked in the `GuildBank.sol` contract, but instead the `userTokenBalances[GUILD]` mapping of balances per token.
 
 ##### Globals
+
 We add the nested mapping `userTokenBalances` to track balances by user & token. `userTokenBalances[userAddress][tokenAddress] = balance`.
+
 ```
     address public constant GUILD = address(0xdead);
     address public constant ESCROW = address(0xbeef);
     mapping (address => mapping(address => uint256)) public userTokenBalances;
 ```
+
 The Guild balance is the sum of accepted tributes and would have previously been held in the `GuildBank.sol` contract, and the Escrow balance is the sum of pending tributes and would have previously been held on the `Moloch.sol` contract. A user's balance is the sum of token payments, ragequit proceeds, processor rewards, and returns proposal deposits that would have previously been automatically transferred to them, but is now held on their behalf until they withdraw.
 
 ##### `withdrawToken`
@@ -205,70 +212,84 @@ No longer transfers token balances automatically, instead updates internal token
 ### Multi-Token Support
 
 ##### Proposal Struct
+
 Add the following tribute/payment params to allow proposals to offer tribute and request payment in ERC20 tokens specified at the time. In theory they can be the same token, although that wouldn't make a lot of sense.
+
 - add `uint256 tributeOffered` (renamed from `tokenTribute`)
 - add `IERC20 tributeToken`
 - add `uint256 paymentRequested`
 - add `IERC20 paymentToken`
 
 ##### Globals
+
 Track the whitelisted tokens in a mapping (to check if that token is on the whitelist) and an array (to iterate over them when ragequitting to give members a proportional share of all assets).
+
 - add `mapping (address => IERC20) public tokenWhitelist`
 - add `IERC20[] public approvedTokens`
 
 ##### `constructor`
+
 - replace single `approvedToken` with an array: `approvedTokens`
 - iterate through `approvedTokens` and save them to storage
 
 ##### `submitProposal`
+
 - add tribute/payment token params
 - enforce tribute/payment tokens are on whitelist
 - save tribute/payment to proposal
 
 ##### `processProposal`
+
 - auto-fail the proposal if guild bank doesn't have enough tokens for requested payment
 - on successful proposal, update applicant's balance with payment tokens requested
 
 ##### `ragequit`
+
 - withdraw proportional share of all whitelisted tokens, deducting from the internal guild bank balance and updating the user's internal balance
 
 ### Adding Tokens to Whitelist
 
 ##### Proposal Struct
+
 - tributeToken -> token to whitelist
 - proposal.flags[4] -> whitelist flag
 
 ##### Globals
+
 - add `mapping (address => bool) public proposedToWhitelist` to prevent duplicate active token whitelist proposals
 
 ##### `submitWhitelistProposal`
+
 - new function to propose adding a token to the whitelist
 - enforces that the token address isn't null or already whitelisted
 - saves a proposal with all other params set to null except the whitelist flag
   and `tributeToken` address (tributeToken acts as token to whitelist)
 
 ##### `processWhitelistProposal`
+
 - new function to process whitelist proposals
 - on a passing whitelist proposal, add the token to whitelist
 - remove token from `proposedToWhitelist` so another proposal to whitelist the token can be made (assuming it failed)
 
-
 ### Submit -> Sponsor Flow
+
 As Nomic Labs explained in their [audit report](https://medium.com/nomic-labs-blog/moloch-dao-audit-report-f31505e85c70), approving ERC20 tokens to Moloch is unsafe.
 
 > Approving the Moloch DAO to transfer your tokens is, in general, unsafe. Users need to approve tokens to be a proposer or an applicant, but they can end up as the applicant of an unwanted proposal if someone attacks them, as explained in [MOL-L01].
 
 > This also has an impact in the UX, as submitting a proposal requires three transactions (2 approvals, 1 submitProposal call). This is in contrast to one of the most common UX pattern for approval, which consists of only calling approve once, with MAX_INT as value. If someone were to use that pattern, she will be in a vulnerable situation.
 
-To fix this, we change the submission process from only allowing members to submit proposals to allowing *anyone* to submit proposals but then only adding them to the proposal queue when a member **sponsors** the proposal.
+To fix this, we change the submission process from only allowing members to submit proposals to allowing _anyone_ to submit proposals but then only adding them to the proposal queue when a member **sponsors** the proposal.
 
 ##### Proposal Struct
+
 - `address proposer` is now whoever calls `submitProposal` (can be non-member)
 - add `address sponsor` which is the member that calls `sponsorProposal`
 - add `cancelled` to indicate if the proposal has been cancelled by its proposer
 - remove `aborted` which existed to address the unsafe approval vulnerability
 
 ##### Globals
+
 - add `mapping (uint256 => Proposal) public proposals` to store all proposals by ID
 - change `uint256[] public proposalQueue` to only store a reference to the proposal by its ID
 - add `proposalCount` which monotonically increases on each proposal submission and acts as the ID
@@ -276,12 +297,14 @@ To fix this, we change the submission process from only allowing members to subm
 Note - as a result of this change, getting the proposal details from the proposal index changed across the codebase from `proposalQueue[proposalIndex]` to `proposals[proposalQueue[proposalIndex]]` as the former now only returns the proposal ID, which must be used to lookup the proposal details from the `proposals` mapping.
 
 ##### `submitProposal`
+
 - saves proposal by ID, but **does not** add it to the `proposalQueue`
 - transfers tribute tokens from the `msg.sender` (`proposer`)
 
-Because tribute always comes from the `proposer` and not the `applicant`, there is never a situation where someone else can initiate an action to pull *your* tokens into Moloch, so you are safe to approve Moloch once for the maximum amount of any token you wish to offer as tribute.
+Because tribute always comes from the `proposer` and not the `applicant`, there is never a situation where someone else can initiate an action to pull _your_ tokens into Moloch, so you are safe to approve Moloch once for the maximum amount of any token you wish to offer as tribute.
 
 ##### `sponsorProposal`
+
 - can only be called by a member
 - sponsor escrows the proposal deposit
 - checks that proposal has not been sponsored or cancelled
@@ -289,60 +312,76 @@ Because tribute always comes from the `proposer` and not the `applicant`, there 
 - adds the proposal to the `proposalQueue`
 
 ##### `processProposal`
+
 - if failing, refunds escrowed tribute to the proposer, **not the applicant**
 
 ##### `cancelProposal`
+
 If a proposal has been submitted but no members are interested in sponsoring it, the proposer needs a way to withdraw their escrowed tribute. They do this by calling `cancelProposal`, which they can only do before a member sponsors the proposal.
+
 - can only be called by proposal `proposer` (whoever called `submitProposal`)
 - checks that the proposal has not been already sponsored
 - sets `cancelled` to true on the proposal
 - returns escrowed tribute to the proposer
 
 ##### remove `abort` function
+
 The abort functionality existed primarily to address the unsafe approval vulnerability by allowing applicants to abort unexpected and/or malicious proposals and have their tribute returned. However, with the new submit -> sponsor process, there is no risk to approved funds and the abort function and all references can be safely removed.
 
 ### Guild Kick
+
 To allow the members to take risks on new members, we add the guild kick proposal type. The guild kick proposal, if it passes, puts the member in "jail" until all proposals they have voted YES on have been processed, forcing them to stay in the DAO and be party to any consequences of those proposals. When a member is jailed, 100% of their shares are converted to loot and thus they lose the ability to sponsor, vote on, or be the beneficiary (applicant) of any further proposals.
 
 ##### Proposal Struct
+
 - applicant -> member to kick
 - proposal.flags[5] -> guild kick flag
 
 ##### Member Struct
+
 - add `jailed` -> the index of the proposal which jailed the member was jailed
 
 ##### Globals
+
 - add `mapping (address => bool) public proposedToKick` to prevent duplicate active guild kick proposals
 
 ##### `submitGuildKickProposal`
+
 - new function to propose kicking a member
 - enforces that the member exists (has shares or loot)
 - saves a proposal with all other params set to null except the guild kick flag
   and the `applicant` address (applicant acts as member to kick)
 
 ##### `processGuildKickProposal`
+
 - a new function to process guild kick proposals
 - on a passing guild kick proposal, convert 100% of the member's shares into loot and set `jailed` to the proposal index
 - remove member address from `proposedToKick` so another proposal to kick the member can be made (assuming it failed)
 
 ### Ragekick
+
 After a member has been jailed as a result of a passing guild kick proposal, once all the proposals they have voted YES on are processed, anyone can call the `ragekick` function to forcibly redeem the member's loot for their proportional share of the guild bank's tokens. This is effectively the same thing as the member calling `ragequit` themselves.
 
 ##### `ragekick`
+
 - a new function to kick jailed members
 - checks that member is jailed and has loot
 
 ### Loot
-To allow the DAO to issue non-voting shares, we introduce the concept of Loot. Just like shares, loot is requested via proposal, issued to specific members and non-transferrable, and can be redeemed (via ragequit) on par with shares for a proportional fraction of assets in the Guild Bank. However, loot do not count towards votes and DAO members with *only* loot will not be able to sponsor proposals or vote on them. Non-shareholder members with loot will also be prevented from updating their delegate keys as they wouldn't be able to use them for anything anyways.
+
+To allow the DAO to issue non-voting shares, we introduce the concept of Loot. Just like shares, loot is requested via proposal, issued to specific members and non-transferrable, and can be redeemed (via ragequit) on par with shares for a proportional fraction of assets in the Guild Bank. However, loot do not count towards votes and DAO members with _only_ loot will not be able to sponsor proposals or vote on them. Non-shareholder members with loot will also be prevented from updating their delegate keys as they wouldn't be able to use them for anything anyways.
 
 ##### Proposal Struct
+
 - add `lootRequested`
 - update `maxTotalSharesAtYesVote` -> `maxTotalSharesAndLootAtYesVote`
 
 ##### Member Struct
+
 - add `loot`
 
 ##### Globals
+
 - add `totalLoot`
 - update `totalSharesRequested` -> `totalSharesAndLootRequested`
 - update `MAX_NUMBER_OF_SHARES` -> `MAX_NUMBER_OF_SHARES_AND_LOOT`
@@ -350,16 +389,20 @@ To allow the DAO to issue non-voting shares, we introduce the concept of Loot. J
 - update `onlyMember` modifier to be members with at least 1 share **or 1 loot**
 
 ##### `submitProposal`
+
 - add `lootRequested` param
 
 ##### `sponsorProposal`
+
 - check that `MAX_NUMBER_OF_SHARES_AND_LOOT` won't be exceeded
 - update `totalSharesAndLootRequested`
 
 ##### `submitVote`
+
 - update `maxTotalSharesAndLootAtYesVote` if necessary
 
 ##### `processProposal`
+
 - update `totalSharesAndLootRequested`
 - assign loot to member if proposal passes
 - update `totalLoot` if proposal passes
@@ -367,32 +410,39 @@ To allow the DAO to issue non-voting shares, we introduce the concept of Loot. J
 Note - the dilution bound exists to prevent share based overpayment resulting from mass ragequit, and thus takes loot into account when calculating the anticipated dilution.
 
 ##### `ragequit`
+
 - use updated `onlyMember` modifier (so loot holders can ragequit)
 - add `lootToBurn` param
 
 ##### `safeRagequit`
+
 - use updated `onlyMember` modifier (so loot holders can ragequit)
 - add `lootToBurn` param
 
 ##### `updateDelegateKey`
+
 - use `onlyShareholder` modifier to prevent loot-only members from updating delegate keys
 
 ### Deposit Token
+
 To enforce consistency of the proposal deposits and processing fees (which were previously simply the sole `approvedToken`) we set a fixed `depositToken` at contract deployment.
 
 ##### Globals
+
 - add `IERC20 public depositToken`
 
 ##### `constructor`
+
 - save `depositToken` from the first value of the `approvedTokens` array
 
 ##### `sponsorProposal`
+
 - collect proposal deposit from the sponsor
 
 ##### `processProposal`
+
 - transfer processing reward in `depositToken` to whoever called `processProposal`
 - return remaining deposit to proposer
-
 
 ![Goodbye](https://cdn.discordapp.com/attachments/583914506389028865/636359193154289687/image0.jpg)
 [Goodbye](https://cdn.discordapp.com/attachments/583914506389028865/636359193154289687/image0.jpg)
